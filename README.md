@@ -2,12 +2,13 @@
 
 ## Memory Hygiene Layer: Defense Against Adversarial Memory Injection Attacks on RAG-Based AML Agents
 
-[![arXiv](https://img.shields.io/badge/arXiv-cs.CR-b31b1b.svg)](https://arxiv.org)
+[![SSRN](https://img.shields.io/badge/SSRN-6734225-blue.svg)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6734225)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org)
 
 > **Paper:** *Poisoning the Compliance Mind: Adversarial Memory Injection Attacks on RAG-Based AML Agents and a Defense Framework for High-Stakes Financial Environments*
-> **Author:** Frankline Ondieki Ombachi — AI & ML Engineer, Africa Risk Management & Compliance (ARMC) · Compliance Society of Kenya
+> **Author:** Frankline Ondieki Ombachi — AI & ML Engineer, Africa Risk Management & Compliance (ARMC) · Compliance Society of Kenya · Nairobi, Kenya
+> **Published:** [SSRN Preprint 6734225](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6734225) · May 2026
 
 ---
 
@@ -28,7 +29,7 @@ This repository contains the full experimental code for the above paper. We intr
 ### Three attack vectors characterised
 
 - **V1 — Document Poisoning (DP):** Inject plausible regulatory documents that mischaracterise AML typologies as low-risk
-- **V2 — Query-Time Prompt Injection (QTPI):** Embed adversarial instruction sequences within retrieved documents to hijack agent reasoning at inference time
+- **V2 — Query-Time Prompt Injection (QTPI):** Embed adversarial instruction sequences within retrieved documents to hijack agent reasoning at inference time — **most lethal vector, 98.5% degradation at β=50**
 - **V3 — Retrieval Rank Manipulation (RRM):** Optimise documents for high cosine similarity with target transaction embeddings
 
 ### The Memory Hygiene Layer (MHL)
@@ -39,9 +40,9 @@ A modular, training-free defense with three components:
 Document → [CPT: Provenance Check] → [FCS: Factual Consistency] → [SRAD: Anomaly Detection] → Vector Index
 ```
 
-- **CPT** (Cryptographic Provenance Tracking): SHA-256 content hashing + source trust scoring
-- **FCS** (Factual Consistency Scoring): Cross-encoder scoring against authoritative anchor corpus
-- **SRAD** (Statistical Retrieval Anomaly Detection): KS-test on retrieval distributions over sliding window
+- **CPT** (Cryptographic Provenance Tracking): SHA-256 content hashing + source trust scoring → **100% detection, 0% false quarantine**
+- **FCS** (Factual Consistency Scoring): Cross-encoder scoring against authoritative anchor corpus → 22.6ms p99 latency
+- **SRAD** (Statistical Retrieval Anomaly Detection): KS-test on retrieval distributions over 500-query sliding window
 
 ---
 
@@ -69,15 +70,18 @@ MHL-AML/
 1. Open [Google Colab](https://colab.research.google.com)
 2. Set runtime to **T4 GPU**
 3. Upload `run_experiments.py`
-4. Run:
+4. Run the following cells:
 
 ```python
 # Cell 1: Install dependencies
 !pip install faiss-cpu sentence-transformers openai pandas numpy scikit-learn tqdm -q
+```
 
-# Cell 2: Run experiments (set your OpenAI key or leave blank for simulation mode)
+```python
+# Cell 2: Run experiments
+# Set your OpenAI key for LLM results, or leave blank for heuristic simulation mode
 import os
-os.environ["OPENAI_API_KEY"] = ""  # optional — leave blank for heuristic simulation
+os.environ["OPENAI_API_KEY"] = ""  # optional
 
 exec(open('run_experiments.py').read()
     .replace('round(random.lognormal(7, 2), 2)',
@@ -86,7 +90,9 @@ exec(open('run_experiments.py').read()
              'f"C{random.randint(100_000_000, 999_999_999)}"')
 )
 run_all_experiments()
+```
 
+```python
 # Cell 3: Download results
 import shutil
 from google.colab import files
@@ -97,10 +103,10 @@ files.download('results.zip')
 ### Option B: Local machine
 
 ```bash
-git clone https://github.com/frankline-ondieki/MHL-AML
+git clone https://github.com/OndiekiFrank/MHL-AML.git
 cd MHL-AML
 pip install -r requirements.txt
-export OPENAI_API_KEY="your-key"   # optional
+export OPENAI_API_KEY="your-key"   # optional — leave unset for simulation mode
 python run_experiments.py
 ```
 
@@ -122,36 +128,40 @@ tqdm>=4.65.0
 
 ## Experimental Results
 
-Results generated with GPT-3.5-Turbo backend on a 10,000-document synthetic AML corpus (PaySim + FATF typology documents + FinCEN SAR templates).
+Results generated on a 10,000-document synthetic AML corpus (PaySim + FATF typology documents + FinCEN SAR templates) with GPT-3.5-Turbo backend.
 
-### Attack degradation (TBML typology, GPT-3.5-Turbo)
+### Attack degradation — TBML typology (GPT-3.5-Turbo)
 
 | Attack Vector | β=50 | β=280 | β=1000 |
 |---|---|---|---|
 | Baseline (no attack) | 0.924 | 0.924 | 0.924 |
 | DP — Document Poisoning | 0.932 | 0.934 | 0.937 |
-| **QTPI — Prompt Injection** | **0.014** | **0.010** | **0.017** |
+| **QTPI — Prompt Injection** | **0.014 ⚠** | **0.010** | **0.017** |
 | RRM — Rank Manipulation | 0.942 | 0.943 | 0.927 |
 
-### MHL defense (β=280, DP attack)
+> ⚠ QTPI achieves 98.5% degradation at the minimum tested budget of β=50 documents — rendering the agent operationally equivalent to random guessing.
 
-| Configuration | F1 | Detection Rate | False Quarantine Rate | Latency p99 |
+### MHL defense results (β=280, DP attack)
+
+| Configuration | F1 Under Attack | Detection Rate | False Quarantine Rate | Latency p99 |
 |---|---|---|---|---|
 | No defense | 0.945 | — | — | 0 ms |
 | **CPT only** | **0.925** | **100%** | **0%** | **0 ms** |
 | FCS only (θ=0.65) | 0.939 | 0% | 59.8% | 22.6 ms |
+| SRAD only | 0.926 | 0% | 0% | 0 ms |
+| MHL Full (θ=0.65) | 0.928 | 0% | 62.5% | 21.0 ms |
 | MHL Full (θ=0.55) | 0.935 | 0% | 30.4% | 22.3 ms |
 
 ---
 
 ## Regulatory Mapping
 
-| Provision | Vulnerability | MHL Mitigation |
+| Provision | Vulnerability Addressed | MHL Mitigation |
 |---|---|---|
-| FINRA 2026 Rule 3110 | QTPI corrupts agent reasoning with no log signature | CPT audit trail maps every ingestion decision |
-| FCA Traceability | Poisoned retrievals produce untraceable decisions | MHL links every decision to its retrieved context + provenance |
-| FinCEN 2024 Proposed Rule | Agent at F1=0.014 is not "reasonably designed" | CPT+SRAD provide proportionate, auditable controls |
-| FATF 2025 AI Horizon Scan | LLM-generated adversarial docs bypass human review | CPT detects source-level anomalies below the lexical surface |
+| FINRA 2026 Rule 3110 | QTPI corrupts agent reasoning with no anomalous log signature | CPT audit trail maps every ingestion decision with cryptographic integrity |
+| FCA Traceability Standards | Poisoned retrievals produce locally coherent but systemically corrupted untraceable decisions | MHL links every compliance decision to its retrieved context, source provenance, and FCS score |
+| FinCEN 2024 Proposed Rule | Agent at F1=0.014 is not "reasonably designed" for adversarial environments | CPT + SRAD provide proportionate, auditable, deployable controls |
+| FATF 2025 AI Horizon Scan | LLM-generated adversarial documents bypass human plausibility review | CPT provenance tracking detects source-level anomalies below the lexical surface |
 
 ---
 
@@ -161,12 +171,14 @@ If you use this code or findings in your research, please cite:
 
 ```bibtex
 @article{ondieki2026poisoning,
-  title={Poisoning the Compliance Mind: Adversarial Memory Injection Attacks on 
-         RAG-Based AML Agents and a Defense Framework for High-Stakes Financial Environments},
-  author={Ondieki Ombachi, Frankline},
-  journal={arXiv preprint arXiv:cs.CR},
-  year={2026},
-  institution={Africa Risk Management \& Compliance (ARMC), Nairobi, Kenya}
+  title     = {Poisoning the Compliance Mind: Adversarial Memory Injection Attacks on
+               RAG-Based AML Agents and a Defense Framework for High-Stakes Financial Environments},
+  author    = {Ondieki Ombachi, Frankline},
+  journal   = {SSRN Preprint},
+  number    = {6734225},
+  year      = {2026},
+  url       = {https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6734225},
+  institution = {Africa Risk Management \& Compliance (ARMC), Nairobi, Kenya}
 }
 ```
 
@@ -177,11 +189,11 @@ If you use this code or findings in your research, please cite:
 **Frankline Ondieki Ombachi**
 AI & ML Engineer | Financial Crime Intelligence Systems
 Africa Risk Management & Compliance (ARMC) · Compliance Society of Kenya · Nairobi, Kenya
-ondiekifrank021@gmail.com
+ondiekifrank021@gmail.com · [GitHub](https://github.com/OndiekiFrank) · [SSRN](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6734225)
 
-- Top 100 Rising AI Developers in Africa (2025)
-- Keynote Speaker, Nairobi AI Forum 2026 (UNDP, African Development Bank, Microsoft, Meta)
-- Governing Council Secretariat, Compliance Society of Kenya
+- 🏆 Top 100 Rising AI Developers in Africa (2025) — Society for AI Advancement
+- 🎤 Keynote Speaker, Nairobi AI Forum 2026 — UNDP, African Development Bank, Microsoft, Meta
+- 🏛️ Governing Council Secretariat, Compliance Society of Kenya
 
 ---
 
