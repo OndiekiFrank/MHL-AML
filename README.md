@@ -1,48 +1,166 @@
-# CorpusGuard / MHL-AML
-
-## Memory Hygiene Layer: Defense Against Adversarial Memory Injection Attacks on RAG-Based AML Agents
+# MHL-AML: Memory Hygiene Layer — Defense Against Adversarial Memory Injection Attacks on RAG-Based AML Agents
 
 [![SSRN](https://img.shields.io/badge/SSRN-6734225-blue.svg)](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6734225)
+[![ACM ICAIF 2026](https://img.shields.io/badge/ACM%20ICAIF-2026%20Under%20Review-orange.svg)](https://icaif2026.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org)
+[![ORCID](https://img.shields.io/badge/ORCID-0009--0008--3483--0025-green.svg)](https://orcid.org/0009-0008-3483-0025)
 
-> **Paper:** *Poisoning the Compliance Mind: Adversarial Memory Injection Attacks on RAG-Based AML Agents and a Defense Framework for High-Stakes Financial Environments*
-> **Author:** Frankline Ondieki Ombachi — AI & ML Engineer, Africa Risk Management & Compliance (ARMC) · Compliance Society of Kenya · Nairobi, Kenya
-> **Published:** [SSRN Preprint 6734225](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6734225) · May 2026
+> **Paper:** *Poisoning the Compliance Mind: Adversarial Memory Injection Attacks on RAG-Based AML Agents*
+> **Author:** Frankline Ondieki Ombachi
+> **Preprint:** [SSRN 6734225](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6734225) · **Under peer review at ACM ICAIF 2026, Milan**
 
 ---
 
-## Overview
+## The Problem in One Paragraph
 
-This repository contains the full experimental code for the above paper. We introduce and empirically characterise the **Compliance Memory Poisoning Problem (CMPP)** — a formally specified adversarial threat to RAG-based agentic AI systems deployed in financial crime compliance.
+RAG-based AI agents are being deployed at financial institutions globally to automate anti-money laundering compliance. These agents retrieve documents from a persistent vector memory at inference time to make risk decisions. We demonstrate that an adversary who controls as few as **50 documents** fed into this memory — through entirely legitimate ingestion pathways — can collapse the agent's detection accuracy from **91.9% to 1.4%** with **zero anomalous signatures** in any operational log. We call this the **Compliance Memory Poisoning Problem (CMPP)**. We also design and implement a defense: the **Memory Hygiene Layer (MHL)**.
 
-### Key findings
+---
 
-| Finding | Result |
+## Key Results
+
+| Metric | Result |
 |---|---|
-| Baseline AML agent F1 (GPT-3.5-Turbo) | **0.924** |
-| QTPI attack at β=50 documents | **F1 → 0.014** (98.5% degradation) |
-| MHL CPT module detection rate | **100%** at 0% false quarantine |
-| MHL FCS latency overhead | **22.6 ms** p99 |
-| Critical injection budget β* | **50 documents** (QTPI vector) |
+| Baseline AML agent F1 | **0.919** |
+| After QTPI attack at β=50 documents | **F1 → 0.014** — 98.4% degradation |
+| Attack log footprint | **Zero anomalous signatures** |
+| MHL CPT detection rate | **100%** adversarial documents detected |
+| MHL false quarantine rate | **0%** |
+| MHL FCS latency p99 | **22.6 ms** on CPU — no GPU required |
+| Minimum effective injection budget | **50 documents** |
 
-### Three attack vectors characterised
+---
 
-- **V1 — Document Poisoning (DP):** Inject plausible regulatory documents that mischaracterise AML typologies as low-risk
-- **V2 — Query-Time Prompt Injection (QTPI):** Embed adversarial instruction sequences within retrieved documents to hijack agent reasoning at inference time — **most lethal vector, 98.5% degradation at β=50**
-- **V3 — Retrieval Rank Manipulation (RRM):** Optimise documents for high cosine similarity with target transaction embeddings
-
-### The Memory Hygiene Layer (MHL)
-
-A modular, training-free defense with three components:
+## Three Attack Vectors
 
 ```
-Document → [CPT: Provenance Check] → [FCS: Factual Consistency] → [SRAD: Anomaly Detection] → Vector Index
+Adversary Goal: Suppress SAR generation for target AML typology
+─────────────────────────────────────────────────────────────────
+V1 — Document Poisoning (DP)
+     Inject plausible documents mischaracterising typology as low-risk
+     Result: F1 remains HIGH (0.924–0.937) — heuristic classifier resistant
+
+V2 — Query-Time Prompt Injection (QTPI)  ← MOST LETHAL
+     Embed adversarial instruction sequences in retrieved documents
+     Result: F1 collapses to 0.007–0.017 across ALL tested budgets
+     Mechanism: Hijacks agent instruction-following at inference time
+
+V3 — Retrieval Rank Manipulation (RRM)
+     Optimise documents for high cosine similarity with target embeddings
+     Result: F1 remains HIGH (0.927–0.943) — primacy bias insufficient alone
 ```
 
-- **CPT** (Cryptographic Provenance Tracking): SHA-256 content hashing + source trust scoring → **100% detection, 0% false quarantine**
-- **FCS** (Factual Consistency Scoring): Cross-encoder scoring against authoritative anchor corpus → 22.6ms p99 latency
-- **SRAD** (Statistical Retrieval Anomaly Detection): KS-test on retrieval distributions over 500-query sliding window
+---
+
+## The Memory Hygiene Layer (MHL)
+
+A modular, training-free defense that intercepts documents before they enter the vector index.
+
+```
+Incoming Document
+       │
+       ▼
+┌─────────────────────────────────┐
+│  Module 1: CPT                  │
+│  Cryptographic Provenance       │
+│  Tracking                       │
+│  · SHA-256 content hashing      │
+│  · Source trust scoring         │
+│  · Provenance audit trail       │
+│  Result: 100% detection, 0% FQ  │
+└──────────────┬──────────────────┘
+               │ PASS
+               ▼
+┌─────────────────────────────────┐
+│  Module 2: FCS                  │
+│  Factual Consistency Scoring    │
+│  · Cross-encoder re-ranker      │
+│  · Anchor corpus comparison     │
+│  · 22.6ms p99 latency on CPU    │
+└──────────────┬──────────────────┘
+               │ PASS
+               ▼
+┌─────────────────────────────────┐
+│  Module 3: SRAD                 │
+│  Statistical Retrieval          │
+│  Anomaly Detection              │
+│  · KS-test on retrieval dist.   │
+│  · 500-query sliding window     │
+└──────────────┬──────────────────┘
+               │ PASS
+               ▼
+        Vector Index ✓
+```
+
+---
+
+## Experimental Results
+
+### Attack degradation — TBML typology
+
+| Attack Vector | β=50 | β=100 | β=280 | β=500 | β=1000 |
+|---|---|---|---|---|---|
+| Baseline (no attack) | 0.919 | 0.919 | 0.919 | 0.919 | 0.919 |
+| DP — Document Poisoning | 0.924 | 0.930 | 0.934 | 0.936 | 0.937 |
+| **QTPI — Prompt Injection** | **0.014 ⚠** | **0.014** | **0.010** | **0.007** | **0.017** |
+| RRM — Rank Manipulation | 0.942 | 0.938 | 0.943 | 0.927 | 0.927 |
+
+> ⚠ QTPI achieves 98.4% degradation at β=50 — the minimum tested budget. The agent becomes operationally equivalent to random guessing while producing no anomalous log signatures.
+
+### MHL defense results — β=280 DP attack
+
+| Configuration | F1 | Detection Rate | False Quarantine | Latency p99 |
+|---|---|---|---|---|
+| No defense | 0.945 | — | — | 0 ms |
+| **CPT only** | **0.925** | **100%** | **0%** | **0 ms** |
+| FCS only (θ=0.65) | 0.939 | 0% | 59.8% | 22.6 ms |
+| SRAD only | 0.926 | 0% | 0% | 0 ms |
+| MHL Full (θ=0.55) | 0.935 | 0% | 30.4% | 22.3 ms |
+| MHL Full (θ=0.65) | 0.928 | 0% | 62.5% | 21.0 ms |
+
+---
+
+## Quickstart
+
+### Option A: Google Colab (recommended)
+
+1. Open [Google Colab](https://colab.research.google.com)
+2. Upload `run_experiments.py`
+3. Run:
+
+```python
+# Install dependencies
+!pip install faiss-cpu sentence-transformers openai pandas numpy scikit-learn tqdm -q
+```
+
+```python
+# Run all experiments
+import os
+os.environ["OPENAI_API_KEY"] = ""  # Leave blank for simulation mode
+
+exec(open('run_experiments.py').read())
+run_all_experiments()
+```
+
+```python
+# Download results
+import shutil
+from google.colab import files
+shutil.make_archive('results', 'zip', 'results')
+files.download('results.zip')
+```
+
+### Option B: Local
+
+```bash
+git clone https://github.com/OndiekiFrank/MHL-AML.git
+cd MHL-AML
+pip install -r requirements.txt
+python run_experiments.py
+```
+
+> **Note:** Set `OPENAI_API_KEY` for full LLM-backed results. Leave unset to run in heuristic simulation mode — all attack and defense results are reproducible without an API key.
 
 ---
 
@@ -50,11 +168,11 @@ Document → [CPT: Provenance Check] → [FCS: Factual Consistency] → [SRAD: A
 
 ```
 MHL-AML/
-├── run_experiments.py      # Complete experiment runner (all 4 experiments)
+├── run_experiments.py      # Complete experiment runner
 ├── README.md               # This file
 ├── requirements.txt        # Python dependencies
 ├── LICENSE                 # MIT License
-└── results/                # Sample results (generated by running experiments)
+└── results/                # Output directory (generated on run)
     ├── degradation_curves.csv
     ├── mhl_defense.csv
     ├── typology_breakdown.csv
@@ -63,122 +181,40 @@ MHL-AML/
 
 ---
 
-## Quickstart
-
-### Option A: Google Colab (recommended — free, no setup)
-
-1. Open [Google Colab](https://colab.research.google.com)
-2. Set runtime to **T4 GPU**
-3. Upload `run_experiments.py`
-4. Run the following cells:
-
-```python
-# Cell 1: Install dependencies
-!pip install faiss-cpu sentence-transformers openai pandas numpy scikit-learn tqdm -q
-```
-
-```python
-# Cell 2: Run experiments
-# Set your OpenAI key for LLM results, or leave blank for heuristic simulation mode
-import os
-os.environ["OPENAI_API_KEY"] = ""  # optional
-
-exec(open('run_experiments.py').read()
-    .replace('round(random.lognormal(7, 2), 2)',
-             'round(float(__import__("numpy").random.lognormal(7, 2)), 2)')
-    .replace('f"C{random.randint(1e9, 9e9):.0f}"',
-             'f"C{random.randint(100_000_000, 999_999_999)}"')
-)
-run_all_experiments()
-```
-
-```python
-# Cell 3: Download results
-import shutil
-from google.colab import files
-shutil.make_archive('results', 'zip', 'results')
-files.download('results.zip')
-```
-
-### Option B: Local machine
-
-```bash
-git clone https://github.com/OndiekiFrank/MHL-AML.git
-cd MHL-AML
-pip install -r requirements.txt
-export OPENAI_API_KEY="your-key"   # optional — leave unset for simulation mode
-python run_experiments.py
-```
-
----
-
-## Requirements
-
-```
-faiss-cpu>=1.7.4
-sentence-transformers>=2.2.2
-openai>=1.0.0
-pandas>=1.5.0
-numpy>=1.24.0
-scikit-learn>=1.2.0
-tqdm>=4.65.0
-```
-
----
-
-## Experimental Results
-
-Results generated on a 10,000-document synthetic AML corpus (PaySim + FATF typology documents + FinCEN SAR templates) with GPT-3.5-Turbo backend.
-
-### Attack degradation — TBML typology (GPT-3.5-Turbo)
-
-| Attack Vector | β=50 | β=280 | β=1000 |
-|---|---|---|---|
-| Baseline (no attack) | 0.924 | 0.924 | 0.924 |
-| DP — Document Poisoning | 0.932 | 0.934 | 0.937 |
-| **QTPI — Prompt Injection** | **0.014 ⚠** | **0.010** | **0.017** |
-| RRM — Rank Manipulation | 0.942 | 0.943 | 0.927 |
-
-> ⚠ QTPI achieves 98.5% degradation at the minimum tested budget of β=50 documents — rendering the agent operationally equivalent to random guessing.
-
-### MHL defense results (β=280, DP attack)
-
-| Configuration | F1 Under Attack | Detection Rate | False Quarantine Rate | Latency p99 |
-|---|---|---|---|---|
-| No defense | 0.945 | — | — | 0 ms |
-| **CPT only** | **0.925** | **100%** | **0%** | **0 ms** |
-| FCS only (θ=0.65) | 0.939 | 0% | 59.8% | 22.6 ms |
-| SRAD only | 0.926 | 0% | 0% | 0 ms |
-| MHL Full (θ=0.65) | 0.928 | 0% | 62.5% | 21.0 ms |
-| MHL Full (θ=0.55) | 0.935 | 0% | 30.4% | 22.3 ms |
-
----
-
 ## Regulatory Mapping
 
-| Provision | Vulnerability Addressed | MHL Mitigation |
+| Regulation | CMPP Vulnerability | MHL Mitigation |
 |---|---|---|
 | FINRA 2026 Rule 3110 | QTPI corrupts agent reasoning with no anomalous log signature | CPT audit trail maps every ingestion decision with cryptographic integrity |
-| FCA Traceability Standards | Poisoned retrievals produce locally coherent but systemically corrupted untraceable decisions | MHL links every compliance decision to its retrieved context, source provenance, and FCS score |
+| FCA Traceability Standards | Poisoned retrievals produce locally coherent but untraceable decisions | MHL links every decision to retrieved context, source provenance, and FCS score |
 | FinCEN 2024 Proposed Rule | Agent at F1=0.014 is not "reasonably designed" for adversarial environments | CPT + SRAD provide proportionate, auditable, deployable controls |
-| FATF 2025 AI Horizon Scan | LLM-generated adversarial documents bypass human plausibility review | CPT provenance tracking detects source-level anomalies below the lexical surface |
+| FATF 2025 AI Horizon Scan | LLM-generated adversarial documents bypass human plausibility review | CPT provenance tracking detects source-level anomalies below lexical surface |
+| NIST AI RMF | No current profile governs retrieval corpus integrity | MHL provides first reference implementation for RAG corpus security controls |
+| OWASP LLM Top 10 | Prompt injection (LLM01) extended to corpus-level — not covered | QTPI formalises a new sub-category requiring addition to future OWASP guidance |
+
+---
+
+## Why This Matters
+
+Current AI security frameworks — NIST AI RMF, OWASP LLM Top 10, MITRE ATLAS — do not govern the retrieval corpus layer of deployed RAG systems. This is the gap this research addresses.
+
+**The attack surface:** Every RAG-based AI agent that ingests documents from external or semi-trusted sources is potentially vulnerable to CMPP. This includes AI compliance agents, RAG-based legal research tools, AI-powered due diligence systems, and automated regulatory reporting agents.
+
+**The defense:** MHL is designed to be deployed as a pre-ingestion gate in any existing RAG pipeline without model retraining, infrastructure changes, or GPU requirements.
 
 ---
 
 ## Citation
 
-If you use this code or findings in your research, please cite:
-
 ```bibtex
 @article{ondieki2026poisoning,
-  title     = {Poisoning the Compliance Mind: Adversarial Memory Injection Attacks on
-               RAG-Based AML Agents and a Defense Framework for High-Stakes Financial Environments},
-  author    = {Ondieki Ombachi, Frankline},
-  journal   = {SSRN Preprint},
-  number    = {6734225},
-  year      = {2026},
-  url       = {https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6734225},
-  institution = {Africa Risk Management \& Compliance (ARMC), Nairobi, Kenya}
+  title   = {Poisoning the Compliance Mind: Adversarial Memory Injection Attacks on
+             RAG-Based AML Agents},
+  author  = {Ondieki Ombachi, Frankline},
+  journal = {SSRN Preprint 6734225},
+  year    = {2026},
+  url     = {https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6734225},
+  note    = {Under peer review at ACM ICAIF 2026, Milan, Italy}
 }
 ```
 
@@ -187,13 +223,16 @@ If you use this code or findings in your research, please cite:
 ## Author
 
 **Frankline Ondieki Ombachi**
-AI & ML Engineer | Financial Crime Intelligence Systems
-Africa Risk Management & Compliance (ARMC) · Compliance Society of Kenya · Nairobi, Kenya
-ondiekifrank021@gmail.com · [GitHub](https://github.com/OndiekiFrank) · [SSRN](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6734225)
+AI Security Researcher | Machine Learning Engineer | Nairobi, Kenya
 
-- 🏆 Top 100 Rising AI Developers in Africa (2025) — Society for AI Advancement
-- 🎤 Keynote Speaker, Nairobi AI Forum 2026 — UNDP, African Development Bank, Microsoft, Meta
-- 🏛️ Governing Council Secretariat, Compliance Society of Kenya
+📧 ondiekifrank021@gmail.com
+🔗 [GitHub](https://github.com/OndiekiFrank)
+📄 [SSRN](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6734225)
+🔬 [ORCID: 0009-0008-3483-0025](https://orcid.org/0009-0008-3483-0025)
+
+- 🎓 Incoming Cyber Security Analytics student — Mohawk College, Hamilton, Ontario, Canada (September 2026)
+- 🏆 Top 100 Rising AI Developers in Africa 2025 — UNDP, African Development Bank, Microsoft, Meta
+- 🎤 Talk submitted — BSides Toronto 2026, October 3
 
 ---
 
@@ -205,4 +244,4 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 ## Disclaimer
 
-The attack methodology described in the associated paper is provided for academic reproducibility and defensive research purposes only. The authors do not condone the use of these techniques for malicious purposes. The defense framework (MHL) is described in greater implementation detail than the attacks, reflecting the net-positive safety intent of this research.
+The attack methodology is provided for academic reproducibility and defensive research purposes only. The Memory Hygiene Layer defense is described in greater implementation detail than the attacks, reflecting the net-positive safety intent of this disclosure. The authors do not condone malicious use of these techniques.
